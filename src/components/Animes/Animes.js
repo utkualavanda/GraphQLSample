@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import gql from "graphql-tag";
-import { Query } from "react-apollo";
-import { Table, Form, Button} from "react-bootstrap";
+import { useQuery, gql } from "@apollo/client";
+import { Table, Form, Button } from "react-bootstrap";
+import Spinner from '../Spinner/Spinner';
 
 const ANIMES_QUERY = gql`
   query($page: Int, $perPage: Int, $search: String) {
@@ -24,18 +24,18 @@ const ANIMES_QUERY = gql`
 `;
 
 const Animes = () => {
-  const [datas, setDatas] = useState([]);
-  const [pageInfo, setPageInfo] = useState({});
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState([1]);
-
-  let newSearch = "";
-
-  let variables = {
+  const variables = {
     search: search,
     page: page.length,
     perPage: 10,
   };
+  const { loading, data } = useQuery(ANIMES_QUERY, {
+    variables: variables
+  });
+  
+  let newSearch = '';
 
   const changeSearchName = (e) => {
     newSearch = e.target.value;
@@ -53,27 +53,27 @@ const Animes = () => {
   let tableRows = null;
   let paginationButtons = null;
 
-  if (datas.length > 0) {
+  if (data?.Page?.media?.length > 0) {
     const currentPage = page.length;
     let pageMultiplier = 0;
-    currentPage === 1 ? (pageMultiplier = 1) : (pageMultiplier = 10);
+    currentPage === 1 ? (pageMultiplier = 1) : (pageMultiplier = variables.perPage);
 
-    tableRows = datas.map((data, index) => {
+    tableRows = data.Page.media.map((row, index) => {
       return (
         <tr key={index}>
           <th scope="row">{(currentPage - 1) * pageMultiplier + index + 1}</th>
-          <td>{data.title.romaji}</td>
-          <td>{data.title.native}</td>
+          <td>{row.title.romaji}</td>
+          <td>{row.title.native}</td>
         </tr>
       );
     });
 
-    const pageCount = [...Array(Math.round(pageInfo?.total / variables.perPage)).keys()]
+    const pageCount = [...Array(Math.ceil(data?.Page?.pageInfo.total / variables.perPage)).keys()]
 
     if (pageCount !== 0) {
       paginationButtons = pageCount.map((_, index) => {
         return (
-          <Button key={index} variant="secondary" className="mr-1" onClick={() => changePageHandler(index + 1)}>
+          <Button key={index} variant="dark" className="mr-1" onClick={() => changePageHandler(index + 1)}>
             {index + 1}
           </Button>
         );
@@ -82,18 +82,7 @@ const Animes = () => {
   }
 
   return (
-    <div>
-      <Query query={ANIMES_QUERY} variables={variables}>
-        {({ loading, error, data }) => {
-          if (loading) return null;
-          if (error) console.log("error verdi");
-          console.log(data);
-          setDatas(data.Page.media);
-          setPageInfo(data.Page.pageInfo);
-          return null;
-        }}
-      </Query>
-
+    <>
       <Form>
         <Form.Group className={"mt-2 ml-3"}>
           <Form.Control
@@ -104,18 +93,17 @@ const Animes = () => {
             style={{ display: "inline" }}
           ></Form.Control>
           <Button
-            variant="primary"
+            variant="dark"
             onClick={newSearchHandler}
             className={"mb-1"}
-            style={{ display: "inline" }}
           >
             Search
           </Button>
         </Form.Group>
       </Form>
 
-      <div className="col-7 m-2">
-        <Table>
+      <div className="col-7 m-1">
+        <Table striped bordered hover variant="dark">
           <thead>
             <tr>
               <th scope="col">#</th>
@@ -126,8 +114,9 @@ const Animes = () => {
           <tbody>{tableRows}</tbody>
         </Table>
         {paginationButtons}
+        {loading && <Spinner />}
       </div>
-    </div>
+    </>
   );
 };
 
